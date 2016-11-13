@@ -16,8 +16,64 @@
     >
 
   <TextView
+      android:id="@+id/header"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:text="Hello World!"
+      android:text="Trabalho de Computação Móvel e Ubíqua"
+      android:textSize="26sp"
+      android:gravity="center"
+      android:textStyle="bold"
+      android:layout_margin="25dp"
       />
+  <TextView
+      android:id="@+id/subtitle"
+      android:layout_below="@id/header"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="Acesso e Comunicação entre dispositivos pareados"
+      android:textSize="22sp"
+      android:gravity="center"
+      android:textStyle="italic"
+      />
+  <TextView
+      android:id="@+id/credits"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="Renan Bandeira de Melo Gondim"
+      android:textSize="14sp"
+      android:gravity="center"
+      android:textStyle="italic"
+      android:layout_alignParentBottom="true"
+      />
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:layout_above="@id/credits"
+      android:layout_marginLeft="20dp"
+      android:layout_marginRight="20dp"
+      android:layout_marginBottom="50dp"
+      >
+    <android.support.v7.widget.AppCompatButton
+        android:id="@+id/connect_as_client"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:text="Conectar com outro dispositivo"
+        style="@style/Widget.AppCompat.Button.Colored"
+
+        />
+
+    <android.support.v7.widget.AppCompatButton
+        android:id="@+id/connect_as_server"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Eu quero ser acessado"
+        style="@style/Widget.AppCompat.Button.Colored"
+
+        />
+
+  </LinearLayout>
+
 </RelativeLayout>
