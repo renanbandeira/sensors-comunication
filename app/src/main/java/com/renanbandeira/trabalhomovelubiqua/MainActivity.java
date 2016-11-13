@@ -3,6 +3,7 @@ package com.renanbandeira.trabalhomovelubiqua;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -18,6 +19,8 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.RemoteMessage;
+import com.renanbandeira.trabalhomovelubiqua.firebase.Postman;
+import com.renanbandeira.trabalhomovelubiqua.model.Connection;
 import com.renanbandeira.trabalhomovelubiqua.model.ConnectionStatus;
 import com.renanbandeira.trabalhomovelubiqua.model.Device;
 import java.util.ArrayList;
@@ -32,11 +35,13 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
   boolean deviceExists = false;
   ConnectionStatus status = ConnectionStatus.IDLE;
   String firebaseId;
+  private Device connectedDevice;
+  String connectionID;
+  private Device me;
 
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
-    firebaseId = FirebaseInstanceId.getInstance().getToken();
     Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
     setSupportActionBar(toolbar);
     setTitle("Trabalho Final");
@@ -56,9 +61,10 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         beAvailable();
       }
     });
-    if (firebaseId != null) {
-      mDatabase.child("devices").child(firebaseId).addValueEventListener(this);
-    }
+    do {
+      firebaseId = FirebaseInstanceId.getInstance().getToken();
+    } while (firebaseId == null);
+    mDatabase.child("devices").child(firebaseId).addValueEventListener(this);
   }
 
   @Override protected void onDestroy() {
@@ -83,12 +89,12 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
       dialog.findViewById(R.id.create).setOnClickListener(new View.OnClickListener() {
         @Override public void onClick(View v) {
           String firebaseId = FirebaseInstanceId.getInstance().getToken();
-          String name = ((EditText) dialog.findViewById(R.id.device_name)).getText().toString().trim();
-          Device device = new Device(name, firebaseId);
+          String name =
+              ((EditText) dialog.findViewById(R.id.device_name)).getText().toString().trim();
+          me = new Device(name, firebaseId);
           progressDialog.setMessage("Cadastrando...");
           progressDialog.show();
-          mDatabase.child("devices").child(firebaseId).setValue(device);
-
+          mDatabase.child("devices").child(firebaseId).setValue(me);
         }
       });
       dialog.show();
@@ -113,7 +119,9 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
 
   @Override public void onDataChange(DataSnapshot dataSnapshot) {
     deviceExists = dataSnapshot.exists();
-    if (deviceExists){
+    if (deviceExists) {
+      if (me == null)
+        me = new Device(dataSnapshot.child("name").getValue().toString(), firebaseId);
       switch (status) {
         case INIT_CLIENT:
           dismissProgressDialog();
@@ -122,24 +130,27 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         case WAITING_SERVER:
           if (dataSnapshot.child("connection").exists()) {
             Toast.makeText(this, "Conectado!!", Toast.LENGTH_LONG).show();
-            //TODO go to other activity
+            gotoConnectedActivity(ClientActivity.class);
           }
           break;
         case WAITING_CLIENT:
           if (dataSnapshot.child("connection").exists()) {
-            String deviceId = dataSnapshot.child("connection").getValue().toString();
-            mDatabase.child("devices").child(deviceId).child("connection").setValue(firebaseId);
-            mDatabase.child("devices").child(deviceId).addListenerForSingleValueEvent(new ValueEventListener() {
-              @Override public void onDataChange(DataSnapshot dataSnapshot) {
-                String name = dataSnapshot.child("name").getValue().toString();
-                Toast.makeText(MainActivity.this, "Conectado com" + name, Toast.LENGTH_LONG).show();
-              }
-
-              @Override public void onCancelled(DatabaseError databaseError) {
-                MainActivity.this.onCancelled(databaseError);
-              }
-            });
-
+            String name = dataSnapshot.child("connection")
+                .child("client")
+                .child("name")
+                .getValue()
+                .toString();
+            String id =
+                dataSnapshot.child("connection").child("client").child("id").getValue().toString();
+            connectedDevice = new Device(name, id);
+            connectionID =
+                dataSnapshot.child("connection").child("connectionID").getValue().toString();
+            Connection conn = new Connection(connectedDevice, me, connectionID);
+            connectedDevice = conn.client;
+            Postman.connectResponse(conn);
+            Toast.makeText(MainActivity.this, "Conectado com " + connectedDevice.name,
+                Toast.LENGTH_LONG).show();
+            gotoConnectedActivity(ServerAcivity.class);
           }
           break;
         case INIT_SERVER:
@@ -156,13 +167,12 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         Iterator<DataSnapshot> it = dataSnapshot.getChildren().iterator();
         final List<Device> deviceList = new ArrayList<>();
         List<String> itemsList = new ArrayList<>();
-        while(it.hasNext()) {
+        while (it.hasNext()) {
           DataSnapshot item = it.next();
-          if(item.child("id").getValue().equals(firebaseId)) continue;
-          if ((Boolean) item.child("available").getValue()) {
+          if (item.child("id").getValue().equals(firebaseId)) continue;
+          if (!item.child("connection").exists()) {
             Device device = new Device(item.child("name").getValue().toString(),
-                item.child("id").getValue().toString(),
-                item.child("available").getValue().equals("true"));
+                item.child("id").getValue().toString());
             deviceList.add(device);
             itemsList.add(device.name);
           }
@@ -170,16 +180,14 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         String[] items = itemsList.toArray(new String[itemsList.size()]);
         AlertDialog dialog = new AlertDialog.Builder(MainActivity.this).setItems(items,
             new DialogInterface.OnClickListener() {
-          @Override public void onClick(DialogInterface dialog, int which) {
-            Device device = deviceList.get(which);
-            progressDialog.setMessage("Conectando com " + device);
-            progressDialog.show();
-            status = ConnectionStatus.WAITING_SERVER;
-            mDatabase.child("devices").child(device.id).child("connection").setValue(firebaseId);
-          }
-        })
-            .setTitle("Dispositivos disponíveis")
-            .create();
+              @Override public void onClick(DialogInterface dialog, int which) {
+                connectedDevice = deviceList.get(which);
+                progressDialog.setMessage("Conectando com " + connectedDevice);
+                progressDialog.show();
+                status = ConnectionStatus.WAITING_SERVER;
+                connectionID = Postman.connect(me, connectedDevice);
+              }
+            }).setTitle("Dispositivos disponíveis").create();
         dialog.show();
       }
 
@@ -193,12 +201,20 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
     dismissProgressDialog();
     status = ConnectionStatus.IDLE;
     Toast.makeText(this, databaseError.getMessage(), Toast.LENGTH_LONG).show();
-    //TODO remove connection in both sides on database
+    Postman.disconnect(firebaseId);
   }
 
   private void dismissProgressDialog() {
     if (progressDialog.isShowing()) {
       progressDialog.dismiss();
     }
+  }
+
+  private void gotoConnectedActivity(Class mClass) {
+    Intent intent = new Intent(this, mClass);
+    intent.putExtra("me", me);
+    intent.putExtra("connectedDevice", connectedDevice);
+    intent.putExtra("connectionId", connectionID);
+    startActivity(intent);
   }
 }

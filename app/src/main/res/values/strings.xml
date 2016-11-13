@@ -1,4 +1,11 @@
 <resources>
   <string name="app_name">TrabalhoMovelUbiqua</string>
   <string name="action_settings">Settings</string>
+
+  <string-array name="commands">
+    <item>Verificar Activity Recognition</item>
+    <item>Verificar nível de bateria</item>
+    <item>Verificar GPS</item>
+    <item>Verificar WIFI</item>
+  </string-array>
 </resources>
