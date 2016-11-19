@@ -2,7 +2,6 @@ package com.renanbandeira.trabalhomovelubiqua;
 
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
@@ -12,19 +11,12 @@ import android.widget.ListView;
 import android.widget.Toast;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.renanbandeira.trabalhomovelubiqua.firebase.Postman;
-import com.renanbandeira.trabalhomovelubiqua.model.Device;
 
-public class ClientActivity extends AppCompatActivity
+public class ClientActivity extends ConnectedActivity
     implements ValueEventListener, AdapterView.OnItemClickListener {
 
-  private DatabaseReference mDatabase;
-  Device connectedDevice;
-  Device me;
-  String connectionId;
   Postman.Command[] commands = new Postman.Command[] {
       Postman.Command.ACTIVITY, Postman.Command.BATTERY, Postman.Command.LOCATION,
       Postman.Command.WIFI
@@ -36,9 +28,7 @@ public class ClientActivity extends AppCompatActivity
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_server);
 
-    me = (Device) getIntent().getExtras().getSerializable("me");
-    connectedDevice = (Device) getIntent().getExtras().getSerializable("connectedDevice");
-    connectionId = getIntent().getStringExtra("connectionId");
+
 
     mServicesList = (ListView) findViewById(R.id.log);
     Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -58,7 +48,6 @@ public class ClientActivity extends AppCompatActivity
       }
     });
 
-    mDatabase = FirebaseDatabase.getInstance().getReference();
     mDatabase.child("connections")
         .child(connectionId)
         .child("response")
@@ -67,20 +56,10 @@ public class ClientActivity extends AppCompatActivity
 
   @Override public void onDataChange(DataSnapshot dataSnapshot) {
     if (!dataSnapshot.exists()) return;
-    if (dataSnapshot.getValue() instanceof Postman.Command) {
-      disconnect();
-      return;
-    }
 
     if(dataSnapshot.getValue() != null) {
       Toast.makeText(this, "Resultado: " + dataSnapshot.getValue().toString(), Toast.LENGTH_LONG).show();
     }
-  }
-
-  private void disconnect() {
-    Postman.sendCommandDisconnect(connectionId);
-    Postman.disconnect(me.id);
-    finish();
   }
 
   @Override public void onCancelled(DatabaseError databaseError) {

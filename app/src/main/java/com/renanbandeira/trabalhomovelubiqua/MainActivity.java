@@ -4,7 +4,9 @@ import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -16,25 +18,21 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.iid.FirebaseInstanceId;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.RemoteMessage;
 import com.renanbandeira.trabalhomovelubiqua.firebase.Postman;
 import com.renanbandeira.trabalhomovelubiqua.model.Connection;
 import com.renanbandeira.trabalhomovelubiqua.model.ConnectionStatus;
 import com.renanbandeira.trabalhomovelubiqua.model.Device;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements ValueEventListener {
   private DatabaseReference mDatabase;
   ProgressDialog progressDialog;
   boolean deviceExists = false;
   ConnectionStatus status = ConnectionStatus.IDLE;
-  String firebaseId;
+  String myId;
   private Device connectedDevice;
   String connectionID;
   private Device me;
@@ -61,15 +59,19 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         beAvailable();
       }
     });
-    do {
-      firebaseId = FirebaseInstanceId.getInstance().getToken();
-    } while (firebaseId == null);
-    mDatabase.child("devices").child(firebaseId).addValueEventListener(this);
+    if (!hasMyID()) {
+      myId = UUID.randomUUID().toString();
+      storeID();
+    } else {
+      myId = getMyID();
+    }
+
+    mDatabase.child("devices").child(myId).addValueEventListener(this);
   }
 
   @Override protected void onDestroy() {
+    mDatabase.child(myId).removeEventListener(this);
     super.onDestroy();
-    mDatabase.child(firebaseId).removeEventListener(this);
   }
 
   public void connectToServer() {
@@ -88,13 +90,12 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
 
       dialog.findViewById(R.id.create).setOnClickListener(new View.OnClickListener() {
         @Override public void onClick(View v) {
-          String firebaseId = FirebaseInstanceId.getInstance().getToken();
           String name =
               ((EditText) dialog.findViewById(R.id.device_name)).getText().toString().trim();
-          me = new Device(name, firebaseId);
+          me = new Device(name, myId);
           progressDialog.setMessage("Cadastrando...");
           progressDialog.show();
-          mDatabase.child("devices").child(firebaseId).setValue(me);
+          mDatabase.child("devices").child(myId).setValue(me);
         }
       });
       dialog.show();
@@ -121,7 +122,7 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
     deviceExists = dataSnapshot.exists();
     if (deviceExists) {
       if (me == null)
-        me = new Device(dataSnapshot.child("name").getValue().toString(), firebaseId);
+        me = new Device(dataSnapshot.child("name").getValue().toString(), myId);
       switch (status) {
         case INIT_CLIENT:
           dismissProgressDialog();
@@ -169,7 +170,7 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         List<String> itemsList = new ArrayList<>();
         while (it.hasNext()) {
           DataSnapshot item = it.next();
-          if (item.child("id").getValue().equals(firebaseId)) continue;
+          if (item.child("id").getValue().equals(myId)) continue;
           if (!item.child("connection").exists()) {
             Device device = new Device(item.child("name").getValue().toString(),
                 item.child("id").getValue().toString());
@@ -201,7 +202,7 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
     dismissProgressDialog();
     status = ConnectionStatus.IDLE;
     Toast.makeText(this, databaseError.getMessage(), Toast.LENGTH_LONG).show();
-    Postman.disconnect(firebaseId);
+    Postman.disconnect(myId);
   }
 
   private void dismissProgressDialog() {
@@ -211,10 +212,26 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
   }
 
   private void gotoConnectedActivity(Class mClass) {
+    dismissProgressDialog();
     Intent intent = new Intent(this, mClass);
     intent.putExtra("me", me);
     intent.putExtra("connectedDevice", connectedDevice);
     intent.putExtra("connectionId", connectionID);
     startActivity(intent);
+  }
+
+  private String getMyID(){
+    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+    return prefs.getString("device", null);
+  }
+
+  private boolean hasMyID() {
+    return getMyID() != null;
+  }
+
+  private void storeID() {
+    SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
+    editor.putString("device", myId);
+    editor.apply();
   }
 }

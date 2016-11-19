@@ -25,6 +25,11 @@
 
   </android.support.design.widget.AppBarLayout>
 
-  <include layout="@layout/content_server"/>
+  <include
+      layout="@layout/content_server"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_marginTop="?attr/actionBarSize"
+      />
 
 </android.support.design.widget.CoordinatorLayout>

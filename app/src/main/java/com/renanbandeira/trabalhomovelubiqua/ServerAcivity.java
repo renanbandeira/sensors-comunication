@@ -2,7 +2,6 @@ package com.renanbandeira.trabalhomovelubiqua;
 
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
@@ -10,34 +9,19 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.renanbandeira.trabalhomovelubiqua.firebase.Postman;
-import com.renanbandeira.trabalhomovelubiqua.model.Device;
+import com.renanbandeira.trabalhomovelubiqua.services.CommandResponseManager;
 import java.util.ArrayList;
 
-import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.ACTIVITY;
-import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.BATTERY;
-import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.DISCONNECT;
-import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.LOCATION;
-import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.WIFI;
-
-public class ServerAcivity extends AppCompatActivity implements ValueEventListener {
-
-  private DatabaseReference mDatabase;
-  Device connectedDevice;
-  Device me;
-  String connectionId;
+public class ServerAcivity extends ConnectedActivity implements ValueEventListener {
   ArrayAdapter<String> adapter;
   ListView mLogList;
+  CommandResponseManager commandManager;
 
   @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_server);
-    me = (Device) getIntent().getExtras().getSerializable("me");
-    connectedDevice = (Device) getIntent().getExtras().getSerializable("connectedDevice");
-    connectionId = getIntent().getStringExtra("connectionId");
 
     mLogList = (ListView) findViewById(R.id.log);
     Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -53,9 +37,14 @@ public class ServerAcivity extends AppCompatActivity implements ValueEventListen
         disconnect();
       }
     });
-
-    mDatabase = FirebaseDatabase.getInstance().getReference();
+    commandManager = new CommandResponseManager(this);
+    commandManager.registerServices();
     mDatabase.child("connections").child(connectionId).child("command").addValueEventListener(this);
+  }
+
+  @Override protected void onStop() {
+    commandManager.unregisterServices();
+    super.onStop();
   }
 
   @Override public void onDataChange(DataSnapshot dataSnapshot) {
@@ -63,29 +52,9 @@ public class ServerAcivity extends AppCompatActivity implements ValueEventListen
     String command = dataSnapshot.getValue().toString();
     adapter.add("Pedido por: " + command);
 
-    if (command.equals(String.valueOf(DISCONNECT))) {
-      disconnect();
-      return;
-    }
-    if (command.equals(String.valueOf(ACTIVITY))) {
-      Postman.sendCommandResponse(connectionId, "Correndo");
-      adapter.add("Respondido Correndo");
-    } else if (command.equals(String.valueOf(BATTERY))) {
-      Postman.sendCommandResponse(connectionId, "Bateria boa");
-      adapter.add("Respondido Bateria boa");
-    } else if (command.equals(String.valueOf(LOCATION))) {
-      Postman.sendCommandResponse(connectionId, "EM Casa");
-      adapter.add("Respondido Em Casa");
-    } else if (command.equals(String.valueOf(WIFI))) {
-      Postman.sendCommandResponse(connectionId, "Conectado demais");
-      adapter.add("Respondido Conectado demais");
-    }
-  }
-
-  private void disconnect() {
-    Postman.sendCommandDisconnectResponse(connectionId);
-    Postman.disconnect(me.id);
-    finish();
+    String response = commandManager.getCommandResponse(command);
+    Postman.sendCommandResponse(connectionId, response);
+    adapter.add(response);
   }
 
   @Override public void onCancelled(DatabaseError databaseError) {

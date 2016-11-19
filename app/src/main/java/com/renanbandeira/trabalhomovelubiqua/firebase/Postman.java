@@ -2,7 +2,6 @@ package com.renanbandeira.trabalhomovelubiqua.firebase;
 
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.iid.FirebaseInstanceId;
 import com.renanbandeira.trabalhomovelubiqua.model.Connection;
 import com.renanbandeira.trabalhomovelubiqua.model.Device;
 import java.util.UUID;
@@ -12,7 +11,7 @@ import java.util.UUID;
  */
 public class Postman {
   public enum Command {
-    LOCATION, BATTERY, WIFI, ACTIVITY, DISCONNECT
+    LOCATION, BATTERY, WIFI, ACTIVITY, PLAY_SOUND, SEND_SMS
   }
 
   public static String connect(Device from, Device to) {
@@ -43,16 +42,6 @@ public class Postman {
   public static void sendCommandResponse(String connectionId, String value) {
     DatabaseReference mDatabase = getDatabase();
     mDatabase.child("connections").child(connectionId).child("response").setValue(value);
-  }
-
-  public static void sendCommandDisconnect(String connectionId) {
-    DatabaseReference mDatabase = getDatabase();
-    mDatabase.child("connections").child(connectionId).child("command").setValue(Command.DISCONNECT);
-  }
-
-  public static void sendCommandDisconnectResponse(String connectionId) {
-    DatabaseReference mDatabase = getDatabase();
-    mDatabase.child("connections").child(connectionId).child("response").setValue(Command.DISCONNECT);
   }
 
   private static DatabaseReference getDatabase() {
