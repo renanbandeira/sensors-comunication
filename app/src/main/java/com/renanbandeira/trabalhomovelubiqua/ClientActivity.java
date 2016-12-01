@@ -1,5 +1,6 @@
 package com.renanbandeira.trabalhomovelubiqua;
 
+import android.app.Dialog;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.Toolbar;
@@ -7,19 +8,23 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
+import com.google.gson.Gson;
 import com.renanbandeira.trabalhomovelubiqua.firebase.Postman;
+import com.renanbandeira.trabalhomovelubiqua.model.Device;
+import com.renanbandeira.trabalhomovelubiqua.model.SMSData;
 
 public class ClientActivity extends ConnectedActivity
     implements ValueEventListener, AdapterView.OnItemClickListener {
 
   Postman.Command[] commands = new Postman.Command[] {
       Postman.Command.ACTIVITY, Postman.Command.BATTERY, Postman.Command.LOCATION,
-      Postman.Command.WIFI
+      Postman.Command.WIFI, Postman.Command.PLAY_SOUND, Postman.Command.SEND_SMS
   };
 
   ListView mServicesList;
@@ -72,6 +77,26 @@ public class ClientActivity extends ConnectedActivity
   }
 
   @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-    Postman.sendCommand(connectionId, commands[position]);
+    if (position == 5) {
+      final Dialog dialog = new Dialog(this);
+      dialog.setContentView(R.layout.send_sms_dialog);
+      dialog.setTitle("Enviar SMS");
+
+      dialog.findViewById(R.id.send).setOnClickListener(new View.OnClickListener() {
+        @Override public void onClick(View v) {
+          String to =
+              ((EditText) dialog.findViewById(R.id.smsTo)).getText().toString().trim();
+          String content =
+              ((EditText) dialog.findViewById(R.id.smsContent)).getText().toString().trim();
+          SMSData data = new SMSData(to, content);
+          String command = String.valueOf(Postman.Command.SEND_SMS + new Gson().toJson(data));
+          Postman.sendCommand(connectionId, command);
+          dialog.dismiss();
+        }
+      });
+      dialog.show();
+    } else {
+      Postman.sendCommand(connectionId, String.valueOf(commands[position]));
+    }
   }
 }

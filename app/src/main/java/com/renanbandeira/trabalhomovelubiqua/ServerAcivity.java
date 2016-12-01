@@ -14,6 +14,8 @@ import com.renanbandeira.trabalhomovelubiqua.firebase.Postman;
 import com.renanbandeira.trabalhomovelubiqua.services.CommandResponseManager;
 import java.util.ArrayList;
 
+import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.SEND_SMS;
+
 public class ServerAcivity extends ConnectedActivity implements ValueEventListener {
   ArrayAdapter<String> adapter;
   ListView mLogList;
@@ -50,7 +52,11 @@ public class ServerAcivity extends ConnectedActivity implements ValueEventListen
   @Override public void onDataChange(DataSnapshot dataSnapshot) {
     if (!dataSnapshot.exists()) return;
     String command = dataSnapshot.getValue().toString();
-    adapter.add("Pedido por: " + command);
+    if (command.startsWith(String.valueOf(SEND_SMS))) {
+      adapter.add("Pedido por: " + SEND_SMS);
+    } else {
+      adapter.add("Pedido por: " + command);
+    }
 
     String response = commandManager.getCommandResponse(command);
     Postman.sendCommandResponse(connectionId, response);

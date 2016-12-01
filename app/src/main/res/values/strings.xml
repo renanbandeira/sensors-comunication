@@ -7,5 +7,7 @@
     <item>Verificar nível de bateria</item>
     <item>Verificar GPS</item>
     <item>Verificar WIFI</item>
+    <item>Reproduzir Áudio</item>
+    <item>Enviar SMS</item>
   </string-array>
 </resources>

@@ -5,6 +5,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.AssetFileDescriptor;
+import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
@@ -13,28 +15,35 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.telephony.SmsManager;
 import android.util.Log;
 import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.ActivityRecognition;
 import com.google.android.gms.location.LocationServices;
+import com.google.gson.Gson;
 import com.karumi.dexter.Dexter;
 import com.karumi.dexter.PermissionToken;
 import com.karumi.dexter.listener.PermissionDeniedResponse;
 import com.karumi.dexter.listener.PermissionGrantedResponse;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.single.PermissionListener;
+import com.renanbandeira.trabalhomovelubiqua.R;
+import com.renanbandeira.trabalhomovelubiqua.model.SMSData;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
 import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.ACTIVITY;
 import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.BATTERY;
 import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.LOCATION;
+import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.PLAY_SOUND;
+import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.SEND_SMS;
 import static com.renanbandeira.trabalhomovelubiqua.firebase.Postman.Command.WIFI;
 
 public class CommandResponseManager
-    implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+    implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
+    MediaPlayer.OnCompletionListener {
   private Context context;
   private String lastActivityRecognized = "Desconhecido";
   private String lastLocation = "Desconhecido";
@@ -77,6 +86,14 @@ public class CommandResponseManager
       return lastLocation;
     } else if (command.equals(String.valueOf(WIFI))) {
       return getWifiStats();
+    } else if (command.equals(String.valueOf(PLAY_SOUND))) {
+      playSound();
+      return "Áudio tocado";
+    } else if (command.startsWith(String.valueOf(SEND_SMS))) {
+      String params = command.replace(String.valueOf(SEND_SMS), "");
+      SMSData data = new Gson().fromJson(params, SMSData.class);
+      sendSMS(data.getPhone(), data.getMessage());
+      return "Enviado SMS";
     }
     return "Comando inválido";
   }
@@ -154,5 +171,38 @@ public class CommandResponseManager
   @Override public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
     Log.e("Falha com Play Services", connectionResult.getErrorMessage());
     Toast.makeText(context, "Falha de conexao com o Play Services", Toast.LENGTH_SHORT).show();
+  }
+
+  private void playSound(){
+    MediaPlayer mediaPlayer = MediaPlayer.create(context, R.raw.audio);
+    mediaPlayer.start();
+    mediaPlayer.setOnCompletionListener(this);
+  }
+
+  @Override public void onCompletion(MediaPlayer mp) {
+    mp.release();
+  }
+
+  private void sendSMS(final String phoneNo, final String msg) {
+    Dexter.checkPermission(new PermissionListener() {
+      @Override public void onPermissionGranted(PermissionGrantedResponse response) {
+        try {
+          SmsManager smsManager = SmsManager.getDefault();
+          smsManager.sendTextMessage(phoneNo, null, msg, null, null);
+        } catch (Exception ex) {
+          ex.printStackTrace();
+        }
+      }
+
+      @Override public void onPermissionDenied(PermissionDeniedResponse response) {
+        Toast.makeText(context, "Permissão para enviar SMS negada!", Toast.LENGTH_LONG).show();
+      }
+
+      @Override public void onPermissionRationaleShouldBeShown(PermissionRequest permission,
+          PermissionToken token) {
+        token.continuePermissionRequest();
+      }
+    }, Manifest.permission.SEND_SMS);
+
   }
 }

@@ -59,7 +59,8 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
         beAvailable();
       }
     });
-    if (!hasMyID()) {
+    deviceExists = hasMyID();
+    if (!deviceExists) {
       myId = UUID.randomUUID().toString();
       storeID();
     } else {
@@ -96,6 +97,7 @@ public class MainActivity extends AppCompatActivity implements ValueEventListene
           progressDialog.setMessage("Cadastrando...");
           progressDialog.show();
           mDatabase.child("devices").child(myId).setValue(me);
+          dialog.dismiss();
         }
       });
       dialog.show();

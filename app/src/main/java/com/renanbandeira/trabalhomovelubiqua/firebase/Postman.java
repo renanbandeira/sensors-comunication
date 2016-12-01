@@ -34,7 +34,7 @@ public class Postman {
     mDatabase.child("devices").child(from).child("connection").removeValue();
   }
 
-  public static void sendCommand(String connectionId, Command command) {
+  public static void sendCommand(String connectionId, String command) {
     DatabaseReference mDatabase = getDatabase();
     mDatabase.child("connections").child(connectionId).child("command").setValue(command);
   }
